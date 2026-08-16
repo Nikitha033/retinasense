@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.vscode/
+.idea/
+*.log
+
+dataset/
+data/
+
+comparison_heatmap.png
+comparison_overlay.png
+progression_heatmap.png
+progression_overlay.png
