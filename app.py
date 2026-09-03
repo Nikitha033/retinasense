@@ -52,11 +52,11 @@ align_images = cmp_mod.align_images
 compute_difference = cmp_mod.compute_difference
 load_and_preprocess = cmp_mod.load_and_preprocess
 
-DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M", "O"]
+DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M"]
 DISEASE_NAMES = {
     "N": "Normal", "D": "Diabetic Retinopathy", "G": "Glaucoma",
     "C": "Cataract", "A": "Age-related Macular Degeneration",
-    "H": "Hypertensive Retinopathy", "M": "Myopia", "O": "Other",
+    "H": "Hypertensive Retinopathy", "M": "Myopia",
 }
 SEVERITY_NAMES = ["No/Unspecified", "Mild", "Moderate", "Severe", "Proliferative"]
 
@@ -128,15 +128,6 @@ DISEASE_INFO = {
         "risk_factors": "Family history, extensive near-work, limited "
                         "outdoor time in childhood.",
     },
-    "Other": {
-        "what": "Findings that don't fit the other specific categories in "
-                "this model's training labels (ODIR-5K's 'Other' class "
-                "covers a broad mix of miscellaneous retinal findings).",
-        "symptoms": "Varies widely depending on the underlying finding.",
-        "treatment": "Depends entirely on the specific condition — "
-                     "clinical evaluation is needed to identify it.",
-        "risk_factors": "Varies widely depending on the underlying finding.",
-    },
 }
 
 st.set_page_config(page_title="RetinaSense", page_icon="👁", layout="wide")
@@ -185,27 +176,75 @@ def load_model(checkpoint_path):
 
 def predict(image_bgr, model, device, threshold):
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+
     transform = get_eval_transforms()
-    tensor = transform(image=image_rgb)["image"].unsqueeze(0).to(device)
+    tensor = transform(
+        image=image_rgb
+    )["image"].unsqueeze(0).to(device)
 
     start = time.time()
+
     with torch.no_grad():
         disease_logits, severity_logits = model(tensor)
-        probs = torch.sigmoid(disease_logits).cpu().numpy()[0]
-        severity_probs = torch.softmax(severity_logits, dim=1).cpu().numpy()[0]
+
+        # Disease probabilities
+        probs = torch.sigmoid(
+            disease_logits
+        ).cpu().numpy()[0]
+
+        # Severity probabilities
+        severity_probs = torch.softmax(
+            severity_logits,
+            dim=1
+        ).cpu().numpy()[0]
+
     elapsed = time.time() - start
 
-    results = {DISEASE_NAMES[c]: float(probs[i]) for i, c in enumerate(DISEASE_COLS)}
-    results_sorted = dict(sorted(results.items(), key=lambda kv: -kv[1]))
+    # Create disease results
+    results = {
+        DISEASE_NAMES[c]: float(probs[i])
+        for i, c in enumerate(DISEASE_COLS)
+    }
+
+    # Sort from highest probability to lowest
+    results_sorted = dict(
+        sorted(
+            results.items(),
+            key=lambda kv: -kv[1]
+        )
+    )
+
+    # ---------------------------------------------------------
+    # DR SEVERITY
+    # Only show severity if DR is the PRIMARY prediction
+    # ---------------------------------------------------------
 
     severity_result = None
-    if probs[DISEASE_COLS.index("D")] >= threshold:
-        sev_idx = int(severity_probs.argmax())
+
+    # Find the disease with highest probability
+    top_idx = int(np.argmax(probs))
+    top_disease = DISEASE_COLS[top_idx]
+
+    if (
+        top_disease == "D"
+        and probs[top_idx] >= threshold
+    ):
+        sev_idx = int(
+            severity_probs.argmax()
+        )
+
         severity_result = {
             "grade": SEVERITY_NAMES[sev_idx],
-            "confidence": float(severity_probs[sev_idx]),
+            "confidence": float(
+                severity_probs[sev_idx]
+            ),
         }
-    return results_sorted, severity_result, elapsed
+
+    return (
+        results_sorted,
+        severity_result,
+        elapsed
+    )
 
 
 def status_for(prob, threshold):

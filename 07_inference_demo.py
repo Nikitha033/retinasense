@@ -21,9 +21,9 @@ import torch
 DISEASE_NAMES = {
     "N": "Normal", "D": "Diabetic Retinopathy", "G": "Glaucoma",
     "C": "Cataract", "A": "Age-related Macular Degeneration",
-    "H": "Hypertensive Retinopathy", "M": "Myopia", "O": "Other",
+    "H": "Hypertensive Retinopathy", "M": "Myopia",
 }
-DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M", "O"]
+DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M"]
 SEVERITY_NAMES = ["No/Unspecified", "Mild", "Moderate", "Severe", "Proliferative"]
 
 

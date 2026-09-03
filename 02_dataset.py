@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M", "O"]
+DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M"]
 IMG_SIZE = 224
 
 
@@ -51,6 +51,12 @@ class ODIRDataset(Dataset):
         row = self.df.iloc[idx]
         img_path = os.path.join(self.img_dir, row["filename"])
         img = cv2.imread(img_path)
+        if img is None:
+            raise FileNotFoundError(
+                f"Could not load image: '{img_path}'. "
+                f"Please ensure --img_dir points to the correct image folder "
+                f"(e.g., 'dataset/ODIR-5K/Training Images')."
+            )
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
         augmented = self.transform(image=img)

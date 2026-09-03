@@ -3,7 +3,7 @@
 -----------
 RetinaSense model: an EfficientNet-B0 backbone (ImageNet-pretrained)
 shared by two heads:
-  - disease_head : 8-way sigmoid (multi-label disease presence)
+  - disease_head : 7-way sigmoid (multi-label disease presence: N, D, G, C, A, H, M)
   - severity_head: 5-way softmax (DR severity: 0=None/unspecified ... 4=Proliferative)
 
 The severity head is only meaningfully supervised on DR-positive samples
@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
-NUM_DISEASES = 8
+NUM_DISEASES = 7
 NUM_SEVERITY_CLASSES = 5
 
 
@@ -63,5 +63,5 @@ if __name__ == "__main__":
     m = RetinaSenseModel()
     dummy = torch.randn(2, 3, 224, 224)
     d_out, s_out = m(dummy)
-    print("disease logits:", d_out.shape)   # [2, 8]
+    print("disease logits:", d_out.shape)   # [2, 7]
     print("severity logits:", s_out.shape)  # [2, 5]
