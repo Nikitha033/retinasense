@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M"]
+DISEASE_COLS = ["D", "G", "C", "A", "H", "M"]
 IMG_SIZE = 224
 
 

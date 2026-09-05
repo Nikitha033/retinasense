@@ -19,11 +19,11 @@ import cv2
 import torch
 
 DISEASE_NAMES = {
-    "N": "Normal", "D": "Diabetic Retinopathy", "G": "Glaucoma",
+    "D": "Diabetic Retinopathy", "G": "Glaucoma",
     "C": "Cataract", "A": "Age-related Macular Degeneration",
     "H": "Hypertensive Retinopathy", "M": "Myopia",
 }
-DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M"]
+DISEASE_COLS = ["D", "G", "C", "A", "H", "M"]
 SEVERITY_NAMES = ["No/Unspecified", "Mild", "Moderate", "Severe", "Proliferative"]
 
 
@@ -102,7 +102,7 @@ def main():
         for name, p in predicted.items():
             print(f"  {name}: {p:.3f}")
     else:
-        print("  None above threshold")
+        print("  🟢 Normal / Healthy Retina (No disease detected above threshold)")
 
     if severity:
         print(f"\n=== DR severity: {severity['grade']} (confidence {severity['confidence']:.3f}) ===")

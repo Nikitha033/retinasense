@@ -14,17 +14,17 @@ Dataset: **ODIR-5K** (Ocular Disease Intelligent Recognition), Kaggle:
 Step 1  Environment setup (Kaggle/Colab, GPU, libraries)
 Step 2  Download & understand ODIR-5K (images + full_df.csv / data.xlsx)
 Step 3  Data cleaning & EDA (class distribution, missing files, image sizes)
-Step 4  Preprocess: extract multi-labels (N, D, G, C, A, H, M), excluding
-        the unspecific/noisy "Other" (O) category + extract DR severity
-        from diagnostic keyword text
+Step 4  Preprocess: extract multi-labels (D, G, C, A, H, M), excluding
+        the unspecific/noisy "Other" (O) and "Normal" (N) categories +
+        extract DR severity from diagnostic keyword text
 Step 5  Train/val/test split (patient-wise, NOT image-wise, to avoid leakage
         — left+right eye of same patient must stay in the same split)
 Step 6  Build tf.data / torch Dataset with augmentation (CLAHE, rotation,
         flips, brightness/contrast — fundus images tolerate horizontal
         flip but NOT vertical flip well since orientation matters clinically)
 Step 7  Model A: multi-label disease classifier
-        (EfficientNet-B0 backbone, pretrained ImageNet, 7-way sigmoid head:
-        Normal, DR, Glaucoma, Cataract, AMD, Hypertension, Myopia)
+        (EfficientNet-B0 backbone, pretrained ImageNet, 6-way sigmoid head:
+        DR, Glaucoma, Cataract, AMD, Hypertension, Myopia)
 Step 8  Model B: DR severity classifier
         (shares backbone features, 5-way softmax head: No_DR/Mild/
         Moderate/Severe/Proliferative) — trained only on DR-positive samples
@@ -42,14 +42,14 @@ Step 13 (Optional) Deploy as a web app
 
 | File | Purpose |
 |---|---|
-| `01_data_preprocessing.py` | Loads `full_df.csv` / `data.xlsx`, excludes "Other" (`O=1`) images, builds 7-disease multi-labels (`N,D,G,C,A,H,M`), extracts DR severity from keywords, does patient-wise split, saves clean CSVs |
-| `02_dataset.py` | PyTorch `Dataset`/`DataLoader` with augmentation pipeline for 7 disease classes |
-| `03_model.py` | Model A: EfficientNet-B0 (pretrained, transfer learning) + 7-way disease & 5-way severity heads |
+| `01_data_preprocessing.py` | Loads `full_df.csv` / `data.xlsx`, excludes "Other" (`O=1`) and "Normal" (`N=1`) images, builds 6-disease multi-labels (`D,G,C,A,H,M`), extracts DR severity from keywords, does patient-wise split, saves clean CSVs |
+| `02_dataset.py` | PyTorch `Dataset`/`DataLoader` with augmentation pipeline for 6 disease classes |
+| `03_model.py` | Model A: EfficientNet-B0 (pretrained, transfer learning) + 6-way disease & 5-way severity heads |
 | `03b_custom_cnn.py` | Model B: CNN built from scratch (5 conv blocks, no pretrained weights) + same heads — use this to show/explain your own CNN architecture |
 | `04_train.py` | Training loop, loss functions, checkpointing |
-| `05_evaluate.py` | Metrics: AUC, F1, Kappa (ODIR official score), confusion matrix over 7 disease classes |
+| `05_evaluate.py` | Metrics: AUC, F1, Kappa (ODIR official score), confusion matrix over 6 disease classes |
 | `06_image_comparison.py` | Registration + SSIM diff for progression tracking |
-| `07_inference_demo.py` | End-to-end inference on a new image / image pair (7 disease categories) |
+| `07_inference_demo.py` | End-to-end inference on a new image / image pair (6 disease categories) |
 | `requirements.txt` | Dependencies |
 
 ## 3. How to run (Kaggle Notebook is easiest — dataset is already there)
@@ -82,7 +82,7 @@ dataset this size — that comparison itself is a nice result to present).
 
 ## 4. Important honesty notes for your report / viva
 
-- ODIR-5K originally provides **multi-label disease** ground truth across 8 categories (N,D,G,C,A,H,M,O). In this project, the ambiguous **"Other" (O)** category and its associated images are filtered out during preprocessing to focus the network on the **7 specific, clinically actionable retinal conditions** (Normal, DR, Glaucoma, Cataract, AMD, Hypertension, Myopia).
+- ODIR-5K originally provides **multi-label disease** ground truth across 8 categories (N,D,G,C,A,H,M,O). In this project, the ambiguous **"Other" (O)** category and **"Normal" (N)** category images are filtered out during preprocessing to focus the network strictly on the **6 primary retinal pathologies** (DR, Glaucoma, Cataract, AMD, Hypertension, Myopia).
 - ODIR-5K does **not** provide a clean severity column. Severity here is
   derived by **rule-based keyword parsing** of the free-text diagnostic
   keywords field, and only reliably works for **Diabetic Retinopathy**,

@@ -52,9 +52,9 @@ align_images = cmp_mod.align_images
 compute_difference = cmp_mod.compute_difference
 load_and_preprocess = cmp_mod.load_and_preprocess
 
-DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M"]
+DISEASE_COLS = ["D", "G", "C", "A", "H", "M"]
 DISEASE_NAMES = {
-    "N": "Normal", "D": "Diabetic Retinopathy", "G": "Glaucoma",
+    "D": "Diabetic Retinopathy", "G": "Glaucoma",
     "C": "Cataract", "A": "Age-related Macular Degeneration",
     "H": "Hypertensive Retinopathy", "M": "Myopia",
 }
@@ -364,7 +364,7 @@ if mode == "Single Image":
         last_inference_time = elapsed
 
         top_name, top_prob = next(iter(results.items()))
-        top_status, top_pill = status_for(top_prob, threshold)
+        is_normal = (top_prob < threshold)
 
         col_img, col_summary = st.columns([1, 1.3])
 
@@ -380,11 +380,17 @@ if mode == "Single Image":
             st.markdown('<div class="card">', unsafe_allow_html=True)
             st.markdown("#### Prediction Summary")
             st.markdown("**Primary Prediction**")
-            st.markdown(f"### 🟢 {top_name}" if top_prob >= threshold else f"### 🟡 {top_name}")
-            c1, c2 = st.columns(2)
-            c1.markdown(f'<div class="stat-label">Confidence</div><div class="big-stat">{top_prob*100:.0f}%</div>', unsafe_allow_html=True)
-            sev_text = severity["grade"] if severity else "—"
-            c2.markdown(f'<div class="stat-label">Severity</div><div class="big-stat">{sev_text}</div>', unsafe_allow_html=True)
+            if is_normal:
+                st.markdown("### 🟢 Normal (No Disease Detected)")
+                c1, c2 = st.columns(2)
+                c1.markdown(f'<div class="stat-label">Normal Confidence</div><div class="big-stat">{(1 - top_prob)*100:.0f}%</div>', unsafe_allow_html=True)
+                c2.markdown('<div class="stat-label">Status</div><div class="big-stat">Healthy</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f"### 🔴 {top_name}")
+                c1, c2 = st.columns(2)
+                c1.markdown(f'<div class="stat-label">Confidence</div><div class="big-stat">{top_prob*100:.0f}%</div>', unsafe_allow_html=True)
+                sev_text = severity["grade"] if severity else "—"
+                c2.markdown(f'<div class="stat-label">Severity</div><div class="big-stat">{sev_text}</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown("---")
@@ -398,11 +404,10 @@ if mode == "Single Image":
             medals = ["1️⃣", "2️⃣", "3️⃣"]
             for i, (name, prob) in enumerate(list(results.items())[:3]):
                 st.markdown(f"{medals[i]} **{name}** — {prob*100:.0f}%")
-            if top_prob < threshold:
-                st.info(
-                    f"**Most Likely Diagnosis:** {top_name}  \n"
-                    f"**Confidence:** {top_prob*100:.0f}% — below screening threshold.  \n"
-                    f"Clinical examination recommended."
+            if is_normal:
+                st.success(
+                    f"**Assessment:** Normal / No Significant Pathology Detected.  \n"
+                    f"All 6 disease probabilities are below the screening threshold ({threshold:.2f})."
                 )
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -423,11 +428,11 @@ if mode == "Single Image":
             st.markdown("#### AI Interpretation")
             ic1, ic2 = st.columns(2)
             with ic1:
-                st.markdown(f"**Primary finding**  \n{top_name}")
-                st.markdown(f"**Confidence**  \n{top_prob*100:.0f}%")
+                st.markdown(f"**Primary finding**  \n{'Normal / Healthy Retina' if is_normal else top_name}")
+                st.markdown(f"**Confidence**  \n{((1 - top_prob) if is_normal else top_prob)*100:.0f}%")
             with ic2:
-                st.markdown(f"**Disease severity**  \n{severity['grade'] if severity else 'Not applicable'}")
-                action = "Consult an ophthalmologist." if top_prob >= threshold else "Routine follow-up recommended."
+                st.markdown(f"**Disease severity**  \n{severity['grade'] if severity else 'None / Not applicable'}")
+                action = "Routine regular eye checkup." if is_normal else "Consult an ophthalmologist for confirmation."
                 st.markdown(f"**Suggested Action**  \n{action}")
             st.markdown('</div>', unsafe_allow_html=True)
 

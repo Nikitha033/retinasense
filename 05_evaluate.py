@@ -36,10 +36,9 @@ from sklearn.metrics import (
 # Disease labels
 # ---------------------------------------------------------------------------
 
-DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M"]
+DISEASE_COLS = ["D", "G", "C", "A", "H", "M"]
 
 DISEASE_NAMES = {
-    "N": "Normal",
     "D": "Diabetic Retinopathy",
     "G": "Glaucoma",
     "C": "Cataract",

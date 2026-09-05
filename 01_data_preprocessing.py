@@ -2,14 +2,14 @@
 01_data_preprocessing.py
 -------------------------
 Loads ODIR-5K's full_df.csv / data.xlsx, builds:
-  1. Multi-label disease targets (N, D, G, C, A, H, M) — excluding 'Other' (O) images
+  1. Multi-label disease targets (D, G, C, A, H, M) — excluding 'Other' (O) and 'Normal' (N) images
   2. DR severity labels extracted from free-text diagnostic keywords
   3. A patient-wise train/val/test split (avoids leaking the same patient's
      left/right eye across splits)
 
 Output: data/train.csv, data/val.csv, data/test.csv
 Each row = one eye image, with columns:
-  filename, N,D,G,C,A,H,M (0/1 each), dr_severity (0-4 or -1 if not DR/unknown)
+  filename, D,G,C,A,H,M (0/1 each), dr_severity (0-4 or -1 if not DR/unknown)
 """
 
 import argparse
@@ -18,7 +18,7 @@ import re
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-DISEASE_COLS = ["N", "D", "G", "C", "A", "H", "M"]
+DISEASE_COLS = ["D", "G", "C", "A", "H", "M"]
 
 # Ordinal DR severity vocabulary, most severe phrase checked first
 DR_SEVERITY_PATTERNS = [
@@ -44,18 +44,18 @@ def extract_dr_severity(keyword_text: str) -> int:
     return -1
 
 
-def build_long_format(df: pd.DataFrame, exclude_other: bool = True) -> pd.DataFrame:
+def build_long_format(df: pd.DataFrame, exclude_other: bool = True, exclude_normal: bool = True) -> pd.DataFrame:
     """ODIR dataset has one row per PATIENT with separate left/right
     columns. We convert to one row per EYE IMAGE since that's our model's
     input unit, while keeping a patient_id column for grouped splitting.
     
-    If exclude_other=True, records where the 'Other' (O) disease column is 1
-    are excluded."""
+    Excludes records where 'Other' (O=1) or 'Normal' (N=1) are flagged."""
     rows = []
     excluded_other_count = 0
+    excluded_normal_count = 0
 
     for _, r in df.iterrows():
-        # Check if the patient/record has the 'Other' (O) label
+        # Check 'Other' (O)
         is_other = False
         if "O" in r and not pd.isna(r["O"]):
             try:
@@ -65,6 +65,18 @@ def build_long_format(df: pd.DataFrame, exclude_other: bool = True) -> pd.DataFr
 
         if exclude_other and is_other:
             excluded_other_count += 1
+            continue
+
+        # Check 'Normal' (N)
+        is_normal = False
+        if "N" in r and not pd.isna(r["N"]):
+            try:
+                is_normal = (int(r["N"]) == 1)
+            except (ValueError, TypeError):
+                is_normal = False
+
+        if exclude_normal and is_normal:
+            excluded_normal_count += 1
             continue
 
         for side in ["Left", "Right"]:
@@ -86,6 +98,8 @@ def build_long_format(df: pd.DataFrame, exclude_other: bool = True) -> pd.DataFr
 
     if exclude_other:
         print(f"Excluded {excluded_other_count} patient records with disease 'Other' (O=1).")
+    if exclude_normal:
+        print(f"Excluded {excluded_normal_count} patient records with 'Normal' (N=1).")
 
     return pd.DataFrame(rows)
 
@@ -108,6 +122,7 @@ def main():
     ap.add_argument("--img_dir", required=True, help="folder containing the fundus images")
     ap.add_argument("--out_dir", default="./data")
     ap.add_argument("--include_other", action="store_true", help="Set to include 'Other' disease images")
+    ap.add_argument("--include_normal", action="store_true", help="Set to include 'Normal' images")
     args = ap.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -118,8 +133,9 @@ def main():
     print(f"Loaded {len(df)} patient rows")
 
     exclude_other = not args.include_other
-    long_df = build_long_format(df, exclude_other=exclude_other)
-    print(f"Expanded to {len(long_df)} eye-image rows (7 disease classes: {DISEASE_COLS})")
+    exclude_normal = not args.include_normal
+    long_df = build_long_format(df, exclude_other=exclude_other, exclude_normal=exclude_normal)
+    print(f"Expanded to {len(long_df)} eye-image rows (6 disease classes: {DISEASE_COLS})")
 
     # Drop rows whose image file doesn't actually exist on disk
     long_df["exists"] = long_df["filename"].apply(
