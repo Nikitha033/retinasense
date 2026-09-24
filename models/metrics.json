@@ -1,19 +1,168 @@
 {
-  "overall_accuracy": 0.6995192307692307,
-  "macro_auc": 0.7876879957984078,
-  "macro_f1": 0.3497400842247038,
-  "macro_kappa": 0.2870076243017487,
-  "odir_score": 0.4748119014416201,
-  "per_disease_auc": {
-    "D": 0.8202678231033169,
-    "G": 0.7247619047619047,
-    "C": 0.9155430711610486,
-    "A": 0.5777061591978719,
-    "H": 0.7088549337260678,
-    "M": 0.9789940828402367
+  "model": "EfficientNet-B0",
+  "num_diseases": 6,
+  "disease_targets": [
+    "D",
+    "G",
+    "C",
+    "A",
+    "H",
+    "M"
+  ],
+  "n_test_samples": 923,
+  "macro_metrics": {
+    "macro_accuracy": 0.9120621162874684,
+    "macro_auc": 0.8837588093325316,
+    "macro_precision": 0.5135034885933156,
+    "macro_recall": 0.6033540784734946,
+    "macro_f1": 0.5431784548744197,
+    "macro_kappa": 0.48945246437593265,
+    "odir_score": 0.6387965761942946
   },
-  "dr_severity_accuracy": 0.92018779342723,
-  "n_test_samples": 416,
-  "model_type": "transfer",
-  "model": "EfficientNet-B0"
+  "per_disease_metrics": {
+    "D": {
+      "disease_name": "Diabetic Retinopathy",
+      "threshold": 0.51,
+      "accuracy": 0.7269772481040087,
+      "auc": 0.773574294582698,
+      "precision": 0.5734265734265734,
+      "recall": 0.5578231292517006,
+      "specificity": 0.8060413354531002,
+      "f1": 0.5655172413793103,
+      "kappa": 0.366520322900439
+    },
+    "G": {
+      "disease_name": "Glaucoma",
+      "threshold": 0.57,
+      "accuracy": 0.933911159263272,
+      "auc": 0.9072000359776938,
+      "precision": 0.4166666666666667,
+      "recall": 0.49019607843137253,
+      "specificity": 0.9598623853211009,
+      "f1": 0.45045045045045046,
+      "kappa": 0.41553777002688586
+    },
+    "C": {
+      "disease_name": "Cataract",
+      "threshold": 0.65,
+      "accuracy": 0.9794149512459371,
+      "auc": 0.9761190476190476,
+      "precision": 0.8222222222222222,
+      "recall": 0.7708333333333334,
+      "specificity": 0.9908571428571429,
+      "f1": 0.7956989247311829,
+      "kappa": 0.784872238373876
+    },
+    "A": {
+      "disease_name": "Age-related Macular Degeneration",
+      "threshold": 0.51,
+      "accuracy": 0.9317443120260022,
+      "auc": 0.8033095238095239,
+      "precision": 0.3770491803278688,
+      "recall": 0.4791666666666667,
+      "specificity": 0.9565714285714285,
+      "f1": 0.4220183486238532,
+      "kappa": 0.38629671454654835
+    },
+    "H": {
+      "disease_name": "Hypertensive Retinopathy",
+      "threshold": 0.47,
+      "accuracy": 0.9198266522210184,
+      "auc": 0.850467706013363,
+      "precision": 0.1643835616438356,
+      "recall": 0.48,
+      "specificity": 0.9320712694877505,
+      "f1": 0.24489795918367346,
+      "kappa": 0.21314685959172386
+    },
+    "M": {
+      "disease_name": "Myopia",
+      "threshold": 0.57,
+      "accuracy": 0.980498374864572,
+      "auc": 0.9918822479928635,
+      "precision": 0.7272727272727273,
+      "recall": 0.8421052631578947,
+      "specificity": 0.9864406779661017,
+      "f1": 0.7804878048780488,
+      "kappa": 0.7703408808161234
+    }
+  },
+  "normal_screening_metrics": {
+    "n_normal_test_samples": 447,
+    "correct_normal_classifications": 306,
+    "normal_screening_specificity": 68.45637583892618,
+    "mean_disease_probabilities_on_normal": {
+      "D": 0.44722220301628113,
+      "G": 0.25295889377593994,
+      "C": 0.1457480639219284,
+      "A": 0.25879329442977905,
+      "H": 0.24770452082157135,
+      "M": 0.08211097121238708
+    }
+  },
+  "dr_severity_metrics": {
+    "n_dr_samples": 294,
+    "raw_accuracy": 0.4897959183673469,
+    "balanced_accuracy": 0.2985714285714286,
+    "macro_f1": 0.28442861184551826,
+    "confusion_matrix": [
+      [
+        1,
+        1,
+        10,
+        3,
+        0
+      ],
+      [
+        0,
+        56,
+        24,
+        0,
+        0
+      ],
+      [
+        7,
+        61,
+        80,
+        18,
+        2
+      ],
+      [
+        0,
+        4,
+        15,
+        7,
+        2
+      ],
+      [
+        0,
+        0,
+        2,
+        1,
+        0
+      ]
+    ],
+    "class_distribution": {
+      "0": 15,
+      "1": 80,
+      "2": 168,
+      "3": 28,
+      "4": 3
+    },
+    "predicted_distribution": {
+      "0": 8,
+      "1": 122,
+      "2": 131,
+      "3": 29,
+      "4": 4
+    }
+  },
+  "calibrated_thresholds": {
+    "D": 0.51,
+    "G": 0.57,
+    "C": 0.65,
+    "A": 0.51,
+    "H": 0.47,
+    "M": 0.57
+  }
 }
