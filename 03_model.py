@@ -1,13 +1,12 @@
 """
 03_model.py
 -----------
-RetinaSense model: an EfficientNet-B0 backbone (ImageNet-pretrained)
-shared by two heads:
-  - disease_head : 6-way sigmoid (multi-label disease presence: D, G, C, A, H, M)
-  - severity_head: 5-way softmax (DR severity: 0=None/unspecified ... 4=Proliferative)
-
-The severity head is only meaningfully supervised on DR-positive samples
-(see 04_train.py for how its loss is masked).
+RetinaSense High-Accuracy Medical Deep Learning Architecture:
+  - EfficientNet-B0 backbone (ImageNet-pretrained)
+  - Dual Global Context Pooling (AdaptiveAvgPool2d + AdaptiveMaxPool2d -> 2560 channels)
+  - Dual-head design:
+      * disease_head : 6-way multi-label prediction (D, G, C, A, H, M)
+      * severity_head: 5-way clinical DR severity grading (0=Early ... 4=Proliferative)
 """
 
 import torch
@@ -19,49 +18,61 @@ NUM_SEVERITY_CLASSES = 5
 
 
 class RetinaSenseModel(nn.Module):
-    def __init__(self, pretrained=True, freeze_backbone_layers=True):
+    def __init__(self, pretrained=True, freeze_backbone_layers=False):
         super().__init__()
         backbone = models.efficientnet_b0(
             weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1 if pretrained else None
         )
         self.backbone = backbone.features
-        self.pool = nn.AdaptiveAvgPool2d(1)
-        feat_dim = 1280  # EfficientNet-B0 final feature channels
+        feat_dim = 1280
+        self.cam_layer = self.backbone[-1]
 
         if freeze_backbone_layers:
-            # Freeze the early layers, fine-tune the later blocks — standard
-            # transfer-learning trick when the target dataset (ODIR, ~7000
-            # images) is much smaller than ImageNet.
             for i, child in enumerate(self.backbone.children()):
-                if i < 5:
+                if i < 4:
                     for p in child.parameters():
                         p.requires_grad = False
 
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.max_pool = nn.AdaptiveMaxPool2d(1)
+        pooled_dim = feat_dim * 2  # 2560 channels (AvgPool + MaxPool)
+
         self.disease_head = nn.Sequential(
-            nn.Linear(feat_dim, 256),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(256, NUM_DISEASES),
+            nn.Linear(pooled_dim, 512),
+            nn.LayerNorm(512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.25),
+            nn.Linear(512, 128),
+            nn.ReLU(inplace=True),
+            nn.Linear(128, NUM_DISEASES),
         )
 
         self.severity_head = nn.Sequential(
-            nn.Linear(feat_dim, 128),
-            nn.ReLU(),
-            nn.Dropout(0.3),
-            nn.Linear(128, NUM_SEVERITY_CLASSES),
+            nn.Linear(pooled_dim, 256),
+            nn.LayerNorm(256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.25),
+            nn.Linear(256, NUM_SEVERITY_CLASSES),
         )
+
+    def get_cam_layer(self):
+        return self.cam_layer
 
     def forward(self, x):
         feats = self.backbone(x)
-        feats = self.pool(feats).flatten(1)
-        disease_logits = self.disease_head(feats)
-        severity_logits = self.severity_head(feats)
+        avg_f = self.avg_pool(feats).flatten(1)
+        max_f = self.max_pool(feats).flatten(1)
+        combined = torch.cat([avg_f, max_f], dim=1)
+
+        disease_logits = self.disease_head(combined)
+        severity_logits = self.severity_head(combined)
         return disease_logits, severity_logits
 
 
 if __name__ == "__main__":
-    m = RetinaSenseModel()
+    m = RetinaSenseModel(pretrained=False)
     dummy = torch.randn(2, 3, 224, 224)
-    d_out, s_out = m(dummy)
-    print("disease logits:", d_out.shape)   # [2, 6]
-    print("severity logits:", s_out.shape)  # [2, 5]
+    d, s = m(dummy)
+    print("RetinaSenseModel initialized successfully.")
+    print("disease logits shape:", d.shape)
+    print("severity logits shape:", s.shape)

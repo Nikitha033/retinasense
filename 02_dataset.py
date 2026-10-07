@@ -1,7 +1,9 @@
 """
 02_dataset.py
 -------------
-PyTorch Dataset + augmentation pipeline for ODIR fundus images.
+PyTorch Dataset + lesion-preserving augmentation pipeline for ODIR fundus images.
+Strictly preserves microaneurysms, macular drusen, and delicate arteriolar reflexes
+for high-accuracy Diabetic Retinopathy, AMD, and Hypertensive Retinopathy detection.
 """
 
 import os
@@ -18,19 +20,33 @@ IMG_SIZE = 224
 
 
 def get_train_transforms():
+    """High-precision fundus transforms preserving micro-lesions, macular drusen, and vessel boundaries."""
     return A.Compose([
         A.Resize(IMG_SIZE, IMG_SIZE),
-        A.HorizontalFlip(p=0.5),          # left/right eye flip is valid
-        A.Rotate(limit=15, p=0.5),        # small rotation only — fundus anatomy is orientation-sensitive
-        A.RandomBrightnessContrast(0.15, 0.15, p=0.5),
-        A.CLAHE(clip_limit=2.0, p=0.3),   # boosts vessel/lesion contrast, common for fundus images
-        A.GaussNoise(var_limit=(5.0, 20.0), p=0.2),
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.15),
+        A.ShiftScaleRotate(
+            shift_limit=0.03,
+            scale_limit=0.04,
+            rotate_limit=8,
+            border_mode=cv2.BORDER_CONSTANT,
+            value=0,
+            p=0.4
+        ),
+        A.ColorJitter(
+            brightness=0.06,
+            contrast=0.06,
+            saturation=0.06,
+            hue=0.0,  # Zero hue shift: preserves critical copper-wire reflex & drusen pigment
+            p=0.3
+        ),
         A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
         ToTensorV2(),
     ])
 
 
 def get_eval_transforms():
+    """Standard ImageNet evaluation transforms."""
     return A.Compose([
         A.Resize(IMG_SIZE, IMG_SIZE),
         A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),

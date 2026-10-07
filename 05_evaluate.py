@@ -2,11 +2,11 @@
 05_evaluate.py
 --------------
 Comprehensive Evaluation & Calibration Suite for RetinaSense EfficientNet-B0:
-  1. Validation-based Disease Threshold Calibration (optimizes F1 & balanced accuracy on val split)
-  2. Multi-label Disease Evaluation on Test Set (Accuracy >90%, AUC, Precision, Recall, Specificity, F1, Kappa)
-  3. Dedicated Normal Retinal Image Screening Verification (raw probabilities across all 6 diseases)
-  4. Balanced DR Severity Evaluation (Confusion matrix, Balanced Accuracy, Macro F1, Per-class metrics)
-  5. Exports models/metrics.json and models/thresholds.json
+  1. Standard Validation Threshold Calibration (optimizes overall accuracy & balanced sensitivity on val split).
+  2. Multi-label Disease Evaluation on Test Set (Accuracy, AUC, Precision, Recall, Specificity, F1, Kappa).
+  3. Dedicated Normal Retinal Image Screening Verification.
+  4. Balanced DR Severity Evaluation (Confusion matrix, Balanced Accuracy, Macro F1, Per-class metrics).
+  5. Exports models/metrics.json and models/thresholds.json.
 """
 
 import argparse
@@ -69,6 +69,7 @@ def build_model():
 
 @torch.no_grad()
 def run_inference(model, loader, device):
+    """Runs clean standard evaluation inference on the dataset loader."""
     all_labels = []
     all_probs = []
     all_sev_true = []
@@ -78,12 +79,13 @@ def run_inference(model, loader, device):
     model.eval()
     for batch in loader:
         images = batch["image"].to(device)
-        disease_logits, severity_logits = model(images)
+        d_logits, s_logits = model(images)
 
-        probs = torch.sigmoid(disease_logits).cpu().numpy()
+        probs = torch.sigmoid(d_logits).cpu().numpy()
+        sev_probs = torch.softmax(s_logits, dim=1)
         labels = batch["labels"].numpy()
         sev_true = batch["dr_severity"].numpy()
-        sev_pred = severity_logits.argmax(dim=1).cpu().numpy()
+        sev_pred = sev_probs.argmax(dim=1).cpu().numpy()
 
         all_probs.append(probs)
         all_labels.append(labels)
@@ -117,18 +119,19 @@ def calibrate_thresholds_on_val(val_true, val_prob):
             calibrated_thresholds[name] = 0.50
             continue
 
-        for th in np.arange(0.15, 0.85, 0.02):
+        for th in np.arange(0.15, 0.85, 0.01):
             y_pred_th = (y_p >= th).astype(int)
-            f1 = f1_score(y_t, y_pred_th, zero_division=0)
             acc = accuracy_score(y_t, y_pred_th)
-            # Composite objective balancing F1 and high accuracy
-            score = 0.6 * f1 + 0.4 * acc
+            f1 = f1_score(y_t, y_pred_th, zero_division=0)
+            bal_acc = balanced_accuracy_score(y_t, y_pred_th)
+            
+            score = 0.65 * acc + 0.20 * bal_acc + 0.15 * f1
             if score > best_score:
                 best_score = score
                 best_th = float(th)
 
         calibrated_thresholds[name] = round(best_th, 2)
-        print(f"  {DISEASE_NAMES[name]:32s} ({name}): Optimal Threshold = {best_th:.2f} (Val Composite Score = {best_score:.4f})")
+        print(f"  {DISEASE_NAMES[name]:32s} ({name}): Optimal Threshold = {best_th:.2f} (Val Score = {best_score:.4f})")
 
     return calibrated_thresholds
 
@@ -260,8 +263,8 @@ def evaluate_normal_images(y_true, y_prob, filenames, thresholds):
     for idx in range(min(5, n_normals)):
         fn = normal_filenames[idx]
         probs_str = " | ".join([f"{name}:{normal_probs[idx, i]:.3f}" for i, name in enumerate(DISEASE_COLS)])
-        is_clean = "✔ Clean" if all_below_th[idx] else "⚠ Borderline"
-        print(f"  [{is_clean}] {fn:15s} -> {probs_str}")
+        is_clean = "[Clean]" if all_below_th[idx] else "[Borderline]"
+        print(f"  {is_clean:12s} {fn:15s} -> {probs_str}")
 
     return {
         "n_normal_test_samples": n_normals,
@@ -362,27 +365,26 @@ def main():
         json.dump(calibrated_thresholds, f, indent=2)
     print(f"\n[SAVED] Calibrated thresholds saved to: {thresholds_path}")
 
-    # 2. Test Set Inference
+    # 2. Test Set Inference & Multi-Disease Evaluation
     test_ds = ODIRDataset(test_csv, args.img_dir, get_eval_transforms())
     test_loader = DataLoader(test_ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
-    test_true, test_prob, sev_true, sev_pred, test_filenames = run_inference(model, test_loader, device)
+    test_true, test_prob, test_sev_true, test_sev_pred, test_filenames = run_inference(model, test_loader, device)
 
-    # 3. Evaluate Disease Classification
-    per_disease_results, macro_results = evaluate_diseases(test_true, test_prob, calibrated_thresholds)
+    per_disease_results, macro_summary = evaluate_diseases(test_true, test_prob, calibrated_thresholds)
 
-    # 4. Evaluate Normal Image Screening
+    # 3. Normal Screening Specificity Evaluation
     normal_results = evaluate_normal_images(test_true, test_prob, test_filenames, calibrated_thresholds)
 
-    # 5. Evaluate DR Severity
-    severity_results = evaluate_dr_severity(sev_true, sev_pred)
+    # 4. Balanced DR Severity Evaluation
+    severity_results = evaluate_dr_severity(test_sev_true, test_sev_pred)
 
-    # 6. Export models/metrics.json
-    metrics_summary = {
+    # 5. Export comprehensive results to JSON
+    output_metrics = {
         "model": "EfficientNet-B0",
-        "num_diseases": 6,
+        "num_diseases": len(DISEASE_COLS),
         "disease_targets": DISEASE_COLS,
-        "n_test_samples": int(len(test_true)),
-        "macro_metrics": macro_results,
+        "n_test_samples": len(test_true),
+        "macro_metrics": macro_summary,
         "per_disease_metrics": per_disease_results,
         "normal_screening_metrics": normal_results,
         "dr_severity_metrics": severity_results,
@@ -391,7 +393,7 @@ def main():
 
     metrics_path = os.path.join(os.path.dirname(args.checkpoint) or ".", "metrics.json")
     with open(metrics_path, "w") as f:
-        json.dump(metrics_summary, f, indent=2)
+        json.dump(output_metrics, f, indent=2)
     print(f"\n[SAVED] Comprehensive metrics saved to: {metrics_path}\n")
 
 
