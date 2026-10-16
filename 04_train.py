@@ -262,8 +262,8 @@ def main():
         val_loss, val_auc, val_acc, val_sev_acc = validate(model, val_loader, disease_loss_fn, sev_weights, device)
         scheduler.step()
 
-        # Selection criterion strictly on validation split: 55% Acc, 30% AUC, 15% Severity
-        composite_score = 0.55 * val_acc + 0.30 * val_auc + 0.15 * val_sev_acc
+        # Selection criterion strictly on validation split: 60% Acc, 28% AUC, 12% Severity
+        composite_score = 0.60 * val_acc + 0.28 * val_auc + 0.12 * val_sev_acc
 
         print(f"Epoch {epoch + 1:2d}/{args.epochs:2d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val AUC: {val_auc*100:5.2f}% | Val Acc: {val_acc*100:5.2f}% | Sev Acc: {val_sev_acc*100:5.2f}%")
 

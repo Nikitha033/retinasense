@@ -125,7 +125,8 @@ def calibrate_thresholds_on_val(val_true, val_prob):
             f1 = f1_score(y_t, y_pred_th, zero_division=0)
             bal_acc = balanced_accuracy_score(y_t, y_pred_th)
             
-            score = 0.65 * acc + 0.20 * bal_acc + 0.15 * f1
+            spec = ((y_t == 0) & (y_pred_th == 0)).sum() / max(1, (y_t == 0).sum())
+            score = acc + 0.005 * spec
             if score > best_score:
                 best_score = score
                 best_th = float(th)
